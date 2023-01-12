@@ -80,10 +80,15 @@ public class Robot extends TimedRobot {
       Imgproc.cvtColor(mat, grayMat, Imgproc.COLOR_RGB2GRAY);
 
       AprilTagDetection[] detections = detector.detect(grayMat);
+
+      // have not seen any tags yet
       tags.clear();
+
       for (AprilTagDetection detection : detections) {
+        // remember we saw this tag
         tags.add(detection.getId());
 
+        // draw lines around the tag
         for (var i = 0; i <= 3; i++) {
           var j = (i + 1) % 4;
           var pt1 = new Point(detection.getCornerX(i), detection.getCornerY(i));
@@ -91,19 +96,26 @@ public class Robot extends TimedRobot {
           Imgproc.line(mat, pt1, pt2, outlineColor, 2);
         }
 
+        // mark the center of the tag
         var cx = detection.getCenterX();
         var cy = detection.getCenterY();
         var ll = 10;
         Imgproc.line(mat, new Point(cx - ll, cy), new Point(cx + ll, cy), crossColor, 2);
         Imgproc.line(mat, new Point(cx, cy - ll), new Point(cx, cy + ll), crossColor, 2);
+
+        // identify the tag
         Imgproc.putText(mat, Integer.toString(detection.getId()), new Point (cx + ll, cy), Imgproc.FONT_HERSHEY_SIMPLEX, 1, crossColor, 3);
 
+        // determine pose
         Transform3d pose = estimator.estimate(detection);
+
+        // put pose into dashbaord
         var dashboardString = pose.toString();
         SmartDashboard.putString("pose_" + detection.getId(), dashboardString);
       }
 
-      SmartDashboard.putString("tag", tags.toString());
+      // put list of tags onto dashboard
+      SmartDashboard.putString("tags", tags.toString());
 
       // Give the output stream a new image to display
       outputStream.putFrame(mat);
