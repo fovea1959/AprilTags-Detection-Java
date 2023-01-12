@@ -13,24 +13,22 @@ import org.opencv.imgproc.Imgproc;
 
 import edu.wpi.first.apriltag.AprilTagDetection;
 import edu.wpi.first.apriltag.AprilTagDetector;
+import edu.wpi.first.apriltag.AprilTagPoseEstimator;
 import edu.wpi.first.cameraserver.CameraServer;
 import edu.wpi.first.cscore.CvSink;
 import edu.wpi.first.cscore.CvSource;
 import edu.wpi.first.cscore.UsbCamera;
+import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 /**
- * The VM is configured to automatically run this class, and to call the functions corresponding to
- * each mode, as described in the TimedRobot documentation. If you change the name of this class or
- * the package after creating this project, you must also update the build.gradle file in the
- * project.
+ * This is a demo program showing the detection of AprilTags.
+ * The image is acquired from the USB camera, then any detected AprilTags 
+ * are marked up on the image and sent to the dashboard.
  */
 public class Robot extends TimedRobot {
-  /**
-   * This function is run when the robot is first started up and should be used for any
-   * initialization code.
-   */
+
   @Override
   public void robotInit() {
     Thread visionThread = new Thread(() -> apriltagVisionThreadProc());
@@ -38,42 +36,14 @@ public class Robot extends TimedRobot {
     visionThread.start();
   }
 
-  @Override
-  public void robotPeriodic() {}
-
-  @Override
-  public void autonomousInit() {}
-
-  @Override
-  public void autonomousPeriodic() {}
-
-  @Override
-  public void teleopInit() {}
-
-  @Override
-  public void teleopPeriodic() {}
-
-  @Override
-  public void disabledInit() {}
-
-  @Override
-  public void disabledPeriodic() {}
-
-  @Override
-  public void testInit() {}
-
-  @Override
-  public void testPeriodic() {}
-
-  @Override
-  public void simulationInit() {}
-
-  @Override
-  public void simulationPeriodic() {}
-
   void apriltagVisionThreadProc() {
     AprilTagDetector detector = new AprilTagDetector();
+    // look for tag16h5, don't correct any error bits
     detector.addFamily("tag16h5", 0);
+
+    // Set up Pose Estimator - parameters are for a Microsoft Lifecam HD-3000 (https://www.chiefdelphi.com/t/wpilib-apriltagdetector-sample-code/421411/21)
+    AprilTagPoseEstimator.Config poseEstConfig = new AprilTagPoseEstimator.Config(0.1524, 699.3778103158814, 677.7161226393544, 345.6059345433618, 207.12741326228522);
+    AprilTagPoseEstimator estimator = new AprilTagPoseEstimator(poseEstConfig);
   
     // Get the UsbCamera from CameraServer
     UsbCamera camera = CameraServer.startAutomaticCapture();
@@ -83,16 +53,16 @@ public class Robot extends TimedRobot {
     // Get a CvSink. This will capture Mats from the camera
     CvSink cvSink = CameraServer.getVideo();
     // Setup a CvSource. This will send images back to the Dashboard
-    CvSource outputStream = CameraServer.putVideo("detect", 640, 480);
+    CvSource outputStream = CameraServer.putVideo("Detected", 640, 480);
 
     // Mats are very memory expensive. Lets reuse this Mat.
     Mat mat = new Mat();
     Mat grayMat = new Mat();
-    ArrayList<Integer> tags = new ArrayList<>();
 
-    //
+    // Instantiate once
+    ArrayList<Integer> tags = new ArrayList<>();
     Scalar outlineColor = new Scalar(0, 255, 0);
-    Scalar xColor = new Scalar(0, 0, 255);
+    Scalar crossColor = new Scalar(0, 0, 255);
 
     // This cannot be 'true'. The program will never exit if it is. This
     // lets the robot stop this thread when restarting robot code or
@@ -124,12 +94,17 @@ public class Robot extends TimedRobot {
         var cx = detection.getCenterX();
         var cy = detection.getCenterY();
         var ll = 10;
-        Imgproc.line(mat, new Point(cx - ll, cy), new Point(cx + ll, cy), xColor, 2);
-        Imgproc.line(mat, new Point(cx, cy - ll), new Point(cx, cy + ll), xColor, 2);
-        Imgproc.putText(mat, Integer.toString(detection.getId()), new Point (cx + ll, cy), Imgproc.FONT_HERSHEY_SIMPLEX, 1, xColor, 3);
+        Imgproc.line(mat, new Point(cx - ll, cy), new Point(cx + ll, cy), crossColor, 2);
+        Imgproc.line(mat, new Point(cx, cy - ll), new Point(cx, cy + ll), crossColor, 2);
+        Imgproc.putText(mat, Integer.toString(detection.getId()), new Point (cx + ll, cy), Imgproc.FONT_HERSHEY_SIMPLEX, 1, crossColor, 3);
+
+        Transform3d pose = estimator.estimate(detection);
+        var dashboardString = pose.toString();
+        SmartDashboard.putString("pose_" + detection.getId(), dashboardString);
       }
 
       SmartDashboard.putString("tag", tags.toString());
+
       // Give the output stream a new image to display
       outputStream.putFrame(mat);
     }
