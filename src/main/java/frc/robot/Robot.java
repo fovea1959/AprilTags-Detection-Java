@@ -77,6 +77,9 @@ public class Robot extends TimedRobot {
         continue;
       }
 
+      double width = mat.width();
+      SmartDashboard.putNumber("width", width);
+
       Imgproc.cvtColor(mat, grayMat, Imgproc.COLOR_RGB2GRAY);
 
       AprilTagDetection[] detections = detector.detect(grayMat);
@@ -85,6 +88,10 @@ public class Robot extends TimedRobot {
       tags.clear();
 
       for (AprilTagDetection detection : detections) {
+        if (detection.getId() == 1) {
+          SmartDashboard.putNumber ("t1x", detection.getCenterX());
+          SmartDashboard.putNumber ("t1x%", detection.getCenterX()/ 639f);
+        }
         // remember we saw this tag
         tags.add(detection.getId());
 
